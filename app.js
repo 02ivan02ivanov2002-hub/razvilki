@@ -1,7 +1,7 @@
 (function () {
   'use strict';
 
-  var METRIKA_ID = 12345678;
+  var METRIKA_ID = 114394691;
 
   var app = document.getElementById('app');
   var themeToggle = document.getElementById('themeToggle');
@@ -14,7 +14,15 @@
     'Силы': 'Ты выдохся. Без сна и отдыха сессия не сдаётся.',
     'Репутация': 'Реноме рухнуло — теперь никто не пойдёт навстречу.',
     'Энергия': 'Энергия на нуле — проект встал.',
-    'Доверие': 'Тебе перестали верить — и проект это почувствовал.'
+    'Доверие': 'Тебе перестали верить — и проект это почувствовал.',
+    'Комфорт': 'Уют закончился — так жить уже нельзя.',
+    'Нервы': 'Нервы сдали — ни на что больше не хватает.',
+    'Надёжность': 'Надёжность на нуле — на такой машине далеко не уедешь.',
+    'Порядок': 'Порядок рухнул — дачный хаос победил.',
+    'Настроение': 'Настроение на нуле — выходные окончательно испорчены.',
+    'Идеи': 'Идеи кончились — писать больше не о чем.',
+    'Охваты': 'Охваты упали в ноль — тебя просто перестали видеть.',
+    'Терпение': 'Терпение лопнуло — продолжать уже нет сил.'
   };
 
   // ---------- Theme ----------
@@ -145,7 +153,7 @@
       failedResource: null
     };
 
-    trackGoal('test_start');
+    trackGoal('test_started');
     renderTest();
   }
 
@@ -234,13 +242,13 @@
     }
 
     if (state.failed) {
-      trackGoal('test_finish');
+      trackGoal('test_finished');
       renderFail();
       return;
     }
 
     if (state.step + 1 >= sc.steps.length) {
-      trackGoal('test_finish');
+      trackGoal('test_finished');
       renderFinal();
     } else {
       state.step += 1;
@@ -302,7 +310,7 @@
       copyResult(this);
     });
     document.getElementById('restartBtn').addEventListener('click', function () {
-      trackGoal('test_restart');
+      trackGoal('test_restarted');
       startScenario(sc.id);
     });
     document.getElementById('toListBtn').addEventListener('click', function () {
@@ -347,7 +355,7 @@
     app.innerHTML = html;
 
     document.getElementById('restartBtn').addEventListener('click', function () {
-      trackGoal('test_restart');
+      trackGoal('test_restarted');
       startScenario(sc.id);
     });
     document.getElementById('toListBtn').addEventListener('click', function () {
