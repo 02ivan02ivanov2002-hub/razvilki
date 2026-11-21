@@ -5,6 +5,7 @@
 
   var app = document.getElementById('app');
   var themeToggle = document.getElementById('themeToggle');
+  var soundToggle = document.getElementById('soundToggle');
   var brandLink = document.getElementById('brandLink');
 
   var state = null;
@@ -49,6 +50,86 @@
     renderMain();
   });
 
+  // ---------- Sound ----------
+  var SOUND_KEY = 'razvilki_sound';
+  var soundEnabled = true;
+  var audioCtx = null;
+
+  function updateSoundButton() {
+    if (!soundToggle) return;
+    soundToggle.textContent = soundEnabled ? 'Звук вкл.' : 'Звук выкл.';
+    soundToggle.setAttribute('aria-pressed', soundEnabled ? 'true' : 'false');
+  }
+
+  function initSound() {
+    var saved = null;
+    try { saved = localStorage.getItem(SOUND_KEY); } catch (e) {}
+    soundEnabled = saved !== 'off';
+    updateSoundButton();
+  }
+
+  function getAudioContext() {
+    if (audioCtx) return audioCtx;
+    var Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return null;
+    try {
+      audioCtx = new Ctx();
+    } catch (e) {
+      audioCtx = null;
+    }
+    return audioCtx;
+  }
+
+  function playTone(freq, start, duration, volume, type) {
+    var ctx = getAudioContext();
+    if (!ctx) return;
+    var at = ctx.currentTime + start;
+    var osc = ctx.createOscillator();
+    var gain = ctx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.setValueAtTime(freq, at);
+    gain.gain.setValueAtTime(0.0001, at);
+    gain.gain.exponentialRampToValueAtTime(volume, at + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.0001, at + duration);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.start(at);
+    osc.stop(at + duration + 0.03);
+  }
+
+  function playSound(kind) {
+    if (!soundEnabled) return;
+    try {
+      var ctx = getAudioContext();
+      if (!ctx) return;
+      if (ctx.state === 'suspended') {
+        var resumed = ctx.resume();
+        if (resumed && typeof resumed.catch === 'function') resumed.catch(function () {});
+      }
+
+      if (kind === 'choice') {
+        playTone(440, 0, 0.08, 0.035, 'sine');
+      } else if (kind === 'final') {
+        playTone(523.25, 0, 0.14, 0.045, 'sine');
+        playTone(783.99, 0.12, 0.22, 0.045, 'sine');
+      } else if (kind === 'fail') {
+        playTone(220, 0, 0.16, 0.045, 'triangle');
+        playTone(164.81, 0.12, 0.24, 0.045, 'triangle');
+      } else if (kind === 'toggle') {
+        playTone(660, 0, 0.07, 0.03, 'sine');
+      }
+    } catch (e) {}
+  }
+
+  if (soundToggle) {
+    soundToggle.addEventListener('click', function () {
+      soundEnabled = !soundEnabled;
+      try { localStorage.setItem(SOUND_KEY, soundEnabled ? 'on' : 'off'); } catch (e) {}
+      updateSoundButton();
+      if (soundEnabled) playSound('toggle');
+    });
+  }
+
   // ---------- Analytics ----------
   function trackGoal(name) {
     if (typeof ym === 'function') {
@@ -79,14 +160,48 @@
     return null;
   }
 
+  // ---------- Opened endings ----------
+  var ENDINGS_KEY = 'razvilki_endings';
+
+  function loadOpenedEndings() {
+    var raw = null;
+    try { raw = localStorage.getItem(ENDINGS_KEY); } catch (e) {}
+    if (!raw) return {};
+    try {
+      var parsed = JSON.parse(raw);
+      return parsed && typeof parsed === 'object' ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+
+  function saveOpenedEnding(scenarioId, endingId) {
+    var opened = loadOpenedEndings();
+    var list = opened[scenarioId];
+    if (!Array.isArray(list)) list = [];
+    if (list.indexOf(endingId) === -1) {
+      list.push(endingId);
+      opened[scenarioId] = list;
+      try { localStorage.setItem(ENDINGS_KEY, JSON.stringify(opened)); } catch (e) {}
+    }
+    return opened;
+  }
+
+  function countOpenedEndings(scenarioId) {
+    var list = loadOpenedEndings()[scenarioId];
+    return Array.isArray(list) ? list.length : 0;
+  }
+
   function resourcesHtml(values) {
     var res = state.scenario.resources;
+    var changed = state.lastChanged || {};
     var html = '<div class="resources">';
     for (var i = 0; i < res.length; i++) {
       var name = res[i];
       var value = values[name] == null ? 0 : values[name];
       var level = barLevel(value);
-      html += '<div class="resource ' + level + '">' +
+      var change = changed[name] ? ' changed ' + changed[name] : '';
+      html += '<div class="resource ' + level + change + '">' +
         '<div class="resource-head"><span class="resource-name">' + name + '</span>' +
         '<span class="resource-value">' + value + '</span></div>' +
         '<div class="resource-track"><div class="resource-fill" style="width:' + clampBar(value) + '%"></div></div>' +
@@ -113,7 +228,8 @@
         '<h2 class="card-title">' + sc.title + '</h2>' +
         '<p class="card-tagline">' + sc.tagline + '</p>' +
         '<div class="card-meta">' +
-        '<span class="chip">' + sc.steps.length + ' шагов</span>';
+        '<span class="chip">' + sc.steps.length + ' шагов</span>' +
+        '<span class="chip chip-progress">Открыто концовок: ' + countOpenedEndings(sc.id) + ' из ' + sc.endings.length + '</span>';
 
       for (var r = 0; r < sc.resources.length; r++) {
         var rn = sc.resources[r];
@@ -150,7 +266,8 @@
       values: values,
       history: [],
       failed: false,
-      failedResource: null
+      failedResource: null,
+      lastChanged: {}
     };
 
     trackGoal('test_started');
@@ -216,12 +333,16 @@
     var choice = step.choices[index];
     if (!choice) return;
 
+    playSound('choice');
+
     var effects = choice.effects || {};
     var deltas = [];
+    state.lastChanged = {};
 
     for (var res in effects) {
       if (state.values[res] == null) state.values[res] = sc.startValues[res] || 0;
       state.values[res] += effects[res];
+      state.lastChanged[res] = effects[res] >= 0 ? 'up' : 'down';
       deltas.push(formatDelta(res, effects[res]));
     }
 
@@ -267,6 +388,8 @@
   function renderFinal() {
     var sc = state.scenario;
     var ending = pickEnding(sc, state.values);
+    saveOpenedEnding(sc.id, ending.id);
+    playSound('final');
 
     var html = '<div class="result-plate">' +
       '<p class="result-label">Итог</p>' +
@@ -295,6 +418,7 @@
 
     html += '<div class="result-actions">' +
       '<button class="btn" type="button" id="copyResult">Скопировать итог для друзей</button>' +
+      '<button class="btn btn-ghost" type="button" id="shareCard">Поделиться карточкой</button>' +
       '</div>';
 
     html += '<div class="yandex-slot" id="yandex_rtb_result" aria-hidden="true">Рекламный блок</div>';
@@ -309,6 +433,9 @@
     document.getElementById('copyResult').addEventListener('click', function () {
       copyResult(this);
     });
+    document.getElementById('shareCard').addEventListener('click', function () {
+      shareResultCard(this);
+    });
     document.getElementById('restartBtn').addEventListener('click', function () {
       trackGoal('test_restarted');
       startScenario(sc.id);
@@ -322,6 +449,7 @@
   function renderFail() {
     var sc = state.scenario;
     var res = state.failedResource;
+    playSound('fail');
 
     var html = '<div class="result-plate danger-plate">' +
       '<p class="result-label">Провал</p>' +
@@ -364,6 +492,16 @@
   }
 
   // ---------- Copy result ----------
+  function siteLink() {
+    if (location.protocol === 'file:') return '';
+    try {
+      if (location.origin && location.pathname) return location.origin + location.pathname;
+      return location.href;
+    } catch (e) {
+      return '';
+    }
+  }
+
   function buildResultText() {
     var sc = state.scenario;
     var ending = pickEnding(sc, state.values);
@@ -382,6 +520,12 @@
     lines.push('Мои решения:');
     for (var i = 0; i < state.history.length; i++) {
       lines.push((i + 1) + '. ' + state.history[i].choiceText);
+    }
+
+    var link = siteLink();
+    if (link) {
+      lines.push('');
+      lines.push('Пройти тест: ' + link);
     }
 
     return lines.join('\n');
@@ -424,6 +568,314 @@
     if (ok) done();
   }
 
+  // ---------- Result card ----------
+  var CARD_WIDTH = 1200;
+  var CARD_HEIGHT = 630;
+  var FONT_SERIF = 'Georgia, "Times New Roman", "PT Serif", serif';
+  var FONT_SANS = '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
+
+  var CARD_FALLBACK = {
+    light: {
+      bg: '#F5F3EE', surface: '#FCFBF8', surface2: '#EDE9DF', text: '#16171A',
+      muted: '#6C675D', border: '#D8D2C5', accent: '#B23A2A', accentInk: '#1F2326',
+      ok: '#2F6B4F', warn: '#C48A1B', danger: '#B23A2A'
+    },
+    dark: {
+      bg: '#16171A', surface: '#1D1F22', surface2: '#24262A', text: '#F2F0EA',
+      muted: '#9B968C', border: '#34363B', accent: '#D85A43', accentInk: '#F2F0EA',
+      ok: '#4E9C77', warn: '#D9A13B', danger: '#E05A44'
+    }
+  };
+
+  function cssColor(styles, name, fallback) {
+    var value = '';
+    try { value = styles.getPropertyValue(name); } catch (e) {}
+    value = value ? value.trim() : '';
+    return value || fallback;
+  }
+
+  function cardColors() {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var fallback = dark ? CARD_FALLBACK.dark : CARD_FALLBACK.light;
+    var styles = null;
+    try { styles = window.getComputedStyle(document.documentElement); } catch (e) {}
+    if (!styles) return fallback;
+
+    return {
+      bg: cssColor(styles, '--bg', fallback.bg),
+      surface: cssColor(styles, '--surface', fallback.surface),
+      surface2: cssColor(styles, '--surface-2', fallback.surface2),
+      text: cssColor(styles, '--text', fallback.text),
+      muted: cssColor(styles, '--muted', fallback.muted),
+      border: cssColor(styles, '--border', fallback.border),
+      accent: cssColor(styles, '--accent', fallback.accent),
+      accentInk: cssColor(styles, '--accent-ink', fallback.accentInk),
+      ok: cssColor(styles, '--ok', fallback.ok),
+      warn: cssColor(styles, '--warn', fallback.warn),
+      danger: cssColor(styles, '--danger', fallback.danger)
+    };
+  }
+
+  function drawRoundRect(ctx, x, y, width, height, radius) {
+    var r = Math.min(radius, width / 2, height / 2);
+    ctx.beginPath();
+    ctx.moveTo(x + r, y);
+    ctx.arcTo(x + width, y, x + width, y + height, r);
+    ctx.arcTo(x + width, y + height, x, y + height, r);
+    ctx.arcTo(x, y + height, x, y, r);
+    ctx.arcTo(x, y, x + width, y, r);
+    ctx.closePath();
+  }
+
+  function wrapCanvasText(ctx, text, maxWidth, maxLines) {
+    var words = String(text == null ? '' : text).split(/\s+/);
+    var lines = [];
+    var current = '';
+
+    for (var i = 0; i < words.length; i++) {
+      var test = current ? current + ' ' + words[i] : words[i];
+      if (current && ctx.measureText(test).width > maxWidth) {
+        lines.push(current);
+        current = words[i];
+      } else {
+        current = test;
+      }
+    }
+    if (current) lines.push(current);
+    if (lines.length <= maxLines) return lines;
+
+    var limited = lines.slice(0, maxLines);
+    var last = limited[maxLines - 1];
+    while (last.length > 1 && ctx.measureText(last + '…').width > maxWidth) {
+      last = last.slice(0, -1);
+    }
+    limited[maxLines - 1] = last.replace(/\s+$/, '') + '…';
+    return limited;
+  }
+
+  function drawResultCard(ctx, sc, ending, values) {
+    var colors = cardColors();
+    var W = ctx.canvas.width;
+    var H = ctx.canvas.height;
+    var P = 64;
+    var contentW = W - P * 2;
+
+    ctx.fillStyle = colors.bg;
+    ctx.fillRect(0, 0, W, H);
+
+    drawRoundRect(ctx, P, 52, 44, 44, 8);
+    ctx.fillStyle = colors.accentInk;
+    ctx.fill();
+
+    ctx.fillStyle = colors.bg;
+    ctx.font = '700 26px ' + FONT_SERIF;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText('Р', P + 22, 75);
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillStyle = colors.text;
+    ctx.font = '700 26px ' + FONT_SERIF;
+    ctx.fillText('Развилки', P + 60, 58);
+
+    ctx.strokeStyle = colors.border;
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    ctx.moveTo(P, 124);
+    ctx.lineTo(W - P, 124);
+    ctx.stroke();
+
+    ctx.fillStyle = colors.accent;
+    ctx.font = '700 14px ' + FONT_SANS;
+    ctx.fillText('ИТОГ ТЕСТА', P, 156);
+
+    var scenarioLines = wrapCanvasText(ctx, sc.title, contentW, 1);
+    ctx.fillStyle = colors.muted;
+    ctx.font = '600 22px ' + FONT_SANS;
+    ctx.fillText(scenarioLines[0] || '', P, 182);
+
+    var titleTop = 224;
+    var titleLineHeight = 54;
+    ctx.font = '700 46px ' + FONT_SERIF;
+    var titleLines = wrapCanvasText(ctx, ending.title, contentW, 2);
+    ctx.fillStyle = colors.text;
+    for (var i = 0; i < titleLines.length; i++) {
+      ctx.fillText(titleLines[i], P, titleTop + i * titleLineHeight);
+    }
+
+    var descTop = titleTop + titleLines.length * titleLineHeight + 14;
+    var descLineHeight = 30;
+    ctx.font = '400 21px ' + FONT_SANS;
+    var descLines = wrapCanvasText(ctx, ending.text, contentW, 3);
+    ctx.fillStyle = colors.muted;
+    for (i = 0; i < descLines.length; i++) {
+      ctx.fillText(descLines[i], P, descTop + i * descLineHeight);
+    }
+
+    var resTop = Math.max(descTop + descLines.length * descLineHeight + 26, 452);
+    var gap = 24;
+    var cardW = (contentW - gap * 2) / 3;
+    var cardH = 108;
+
+    for (i = 0; i < sc.resources.length; i++) {
+      var name = sc.resources[i];
+      var value = values[name] == null ? 0 : values[name];
+      var x = P + i * (cardW + gap);
+      var levelColor = colors.ok;
+      if (value <= 15) levelColor = colors.danger;
+      else if (value < 35) levelColor = colors.warn;
+
+      drawRoundRect(ctx, x, resTop, cardW, cardH, 12);
+      ctx.fillStyle = colors.surface;
+      ctx.fill();
+      ctx.strokeStyle = colors.border;
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      ctx.fillStyle = colors.muted;
+      ctx.font = '700 12px ' + FONT_SANS;
+      ctx.fillText(name.toUpperCase(), x + 20, resTop + 18);
+
+      ctx.fillStyle = levelColor;
+      ctx.font = '700 34px ' + FONT_SERIF;
+      ctx.fillText(String(value), x + 20, resTop + 40);
+
+      var trackX = x + 20;
+      var trackY = resTop + cardH - 26;
+      var trackW = cardW - 40;
+
+      drawRoundRect(ctx, trackX, trackY, trackW, 8, 4);
+      ctx.fillStyle = colors.surface2;
+      ctx.fill();
+
+      var fillW = clampBar(value) / 100 * trackW;
+      if (fillW > 0) {
+        drawRoundRect(ctx, trackX, trackY, fillW, 8, 4);
+        ctx.fillStyle = levelColor;
+        ctx.fill();
+      }
+    }
+  }
+
+  function dataUrlToBlob(dataUrl) {
+    var parts = dataUrl.split(',');
+    var mimeMatch = parts[0].match(/:(.*?);/);
+    var mime = mimeMatch ? mimeMatch[1] : 'image/png';
+    var binary = atob(parts[1]);
+    var bytes = new Uint8Array(binary.length);
+    for (var i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+    return new Blob([bytes], { type: mime });
+  }
+
+  function buildResultCard(sc, ending, values) {
+    try {
+      var canvas = document.createElement('canvas');
+      canvas.width = CARD_WIDTH;
+      canvas.height = CARD_HEIGHT;
+      var ctx = canvas.getContext('2d');
+      if (!ctx) return null;
+
+      drawResultCard(ctx, sc, ending, values);
+      return dataUrlToBlob(canvas.toDataURL('image/png'));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function downloadBlob(blob, filename) {
+    try {
+      if (window.URL && window.URL.createObjectURL) {
+        var url = window.URL.createObjectURL(blob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.style.display = 'none';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function () { window.URL.revokeObjectURL(url); }, 1000);
+        return;
+      }
+    } catch (e) {}
+
+    try {
+      var reader = new FileReader();
+      reader.onload = function () {
+        var link = document.createElement('a');
+        link.href = reader.result;
+        link.download = filename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+      reader.readAsDataURL(blob);
+    } catch (e) {}
+  }
+
+  function canShareFiles(file) {
+    if (!navigator.share) return false;
+    if (!navigator.canShare) return true;
+    try {
+      return navigator.canShare({ files: [file] });
+    } catch (e) {
+      return false;
+    }
+  }
+
+  function shareResultCard(btn) {
+    if (!state || !btn) return;
+
+    var sc = state.scenario;
+    var ending = pickEnding(sc, state.values);
+    var values = state.values;
+    var shareText = buildResultText();
+    var filename = 'razvilki-' + sc.id + '-' + (ending.id || 'result') + '.png';
+    var blob = buildResultCard(sc, ending, values);
+
+    if (!blob) {
+      var original = btn.textContent;
+      btn.textContent = 'Не удалось создать';
+      btn.classList.add('is-error');
+      setTimeout(function () {
+        btn.textContent = original;
+        btn.classList.remove('is-error');
+      }, 1800);
+      return;
+    }
+
+    var file = null;
+    try {
+      if (window.File) file = new File([blob], filename, { type: 'image/png' });
+    } catch (e) {
+      file = null;
+    }
+
+    if (file && canShareFiles(file)) {
+      try {
+        btn.disabled = true;
+        navigator.share({
+          files: [file],
+          title: 'Развилки — ' + ending.title,
+          text: shareText
+        }).then(function () {
+          btn.disabled = false;
+        }, function (err) {
+          btn.disabled = false;
+          if (err && err.name === 'AbortError') return;
+          downloadBlob(blob, filename);
+        });
+        return;
+      } catch (e) {
+        btn.disabled = false;
+      }
+    }
+
+    downloadBlob(blob, filename);
+  }
+
   initTheme();
+  initSound();
   renderMain();
 })();
