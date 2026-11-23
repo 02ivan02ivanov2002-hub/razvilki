@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Все тесты — Развилки</title>
+  <meta name="description" content="Шесть интерактивных тестов-симуляторов выбора: сессия, пет-проект, жизнь до аванса, первая машина, дача и свой контент.">
+  <meta name="theme-color" content="#F5F3EE">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Развилки">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:title" content="Все тесты — Развилки">
+  <meta property="og:description" content="Шесть интерактивных тестов-симуляторов выбора: сессия, пет-проект, жизнь до аванса, первая машина, дача и свой контент.">
+  <meta property="og:url" content="https://razvilki.vercel.app/tests/">
+  <meta property="og:image" content="https://razvilki.vercel.app/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Все тесты — Развилки">
+  <meta name="twitter:description" content="Шесть интерактивных тестов-симуляторов выбора: сессия, пет-проект, жизнь до аванса, первая машина, дача и свой контент.">
+  <meta name="twitter:image" content="https://razvilki.vercel.app/og-image.png">
+
+  <link rel="canonical" href="https://razvilki.vercel.app/tests/">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='12'%20fill='%23B23A2A'/%3E%3Cpath%20d='M32%2052V32M32%2032L16%2014M32%2032L48%2014'%20stroke='%23FCFBF8'%20stroke-width='7'%20stroke-linecap='round'/%3E%3C/svg%3E">
+
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('razvilki_theme');
+        var dark = saved ? saved === 'dark'
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', dark ? '#16171A' : '#F5F3EE');
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="stylesheet" href="../style.css?v=3">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": "Тесты «Развилок»",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "url": "https://razvilki.vercel.app/tests/session-panic/",
+      "name": "Сессия: без паники (но это не точно)"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "url": "https://razvilki.vercel.app/tests/pet-project/",
+      "name": "Запуск первого пет-проекта за месяц"
+    },
+    {
+      "@type": "ListItem",
+      "position": 3,
+      "url": "https://razvilki.vercel.app/tests/till-payday/",
+      "name": "Дожить до аванса на остатках"
+    },
+    {
+      "@type": "ListItem",
+      "position": 4,
+      "url": "https://razvilki.vercel.app/tests/first-car/",
+      "name": "Первая тачка с рук: лотерея или расчёт?"
+    },
+    {
+      "@type": "ListItem",
+      "position": 5,
+      "url": "https://razvilki.vercel.app/tests/dacha-weekend/",
+      "name": "Выходные на даче: всё успеть или выжить?"
+    },
+    {
+      "@type": "ListItem",
+      "position": 6,
+      "url": "https://razvilki.vercel.app/tests/own-content/",
+      "name": "Свой контент: погоня за охватами или свой стиль"
+    }
+  ]
+}
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Перейти к содержимому</a>
+
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="../" aria-label="На главную">
+        <span class="brand-mark" aria-hidden="true">Р</span>
+        <span class="brand-name">Развилки</span>
+      </a>
+      <div class="header-actions">
+        <a class="theme-toggle" href="../tests/">Все тесты</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell landing" id="main">
+    <nav class="breadcrumbs" aria-label="Хлебные крошки">
+      <a href="../">Главная</a> / <span class="current">Все тесты</span>
+    </nav>
+    <section class="landing-hero">
+      <p class="hero-kicker">Библиотека · 6 тестов</p>
+      <h1 class="hero-title">Все тесты</h1>
+      <p class="hero-sub">Шесть развилок — про сессию, первый пет-проект, жизнь до аванса, машину с рук, дачу и свой контент. В каждой три ресурса, шесть решений и четыре исхода. Без регистрации и правильных ответов.</p>
+    </section>
+    <div class="test-links">
+      <a class="test-link" href="session-panic/"><b>Сессия: без паники (но это не точно)</b><span>Две недели, три сдачи и ноль сна. Дойдёшь до последнего экзамена, не сломавшись?</span></a>
+      <a class="test-link" href="pet-project/"><b>Запуск первого пет-проекта за месяц</b><span>Идея есть, срок — один месяц. Запустишь проект, не потратив бюджет, энергию и доверие?</span></a>
+      <a class="test-link" href="till-payday/"><b>Дожить до аванса на остатках</b><span>Восемь дней, три тысячи на карте и куча соблазнов. Дотянешь до зарплаты, не превратив жизнь в выживание?</span></a>
+      <a class="test-link" href="first-car/"><b>Первая тачка с рук: лотерея или расчёт?</b><span>Цена подозрительно низкая, продавец торопит, а нервы не железные. Купишь машину, а не проблем на колёсах?</span></a>
+      <a class="test-link" href="dacha-weekend/"><b>Выходные на даче: всё успеть или выжить?</b><span>Суббота, шесть утра, а список дел длиннее самого участка. Отдохнёшь или превратишь выходные в вторую работу?</span></a>
+      <a class="test-link" href="own-content/"><b>Свой контент: погоня за охватами или свой стиль</b><span>Алгоритмы требуют цифр, а внутри просит голос. Построишь канал, который не съест тебя?</span></a>
+    </div>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <span>Развилки — платформа интерактивных тестов-симуляторов выбора.</span>
+      <nav class="footer-nav" aria-label="Разделы сайта">
+        <a href="../">Главная</a>
+        <a href="../tests/">Все тесты</a>
+        <a href="../about/">О проекте</a>
+      </nav>
+      <span class="footer-note">Никаких правильных ответов. Только последствия.</span>
+    </div>
+  </footer>
+</body>
+</html>

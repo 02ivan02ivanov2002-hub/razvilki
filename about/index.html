@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>О проекте — Развилки</title>
+  <meta name="description" content="Как устроены «Развилки»: три ресурса, решения с ценой, четыре исхода и никаких правильных ответов.">
+  <meta name="theme-color" content="#F5F3EE">
+
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Развилки">
+  <meta property="og:locale" content="ru_RU">
+  <meta property="og:title" content="О проекте — Развилки">
+  <meta property="og:description" content="Как устроены «Развилки»: три ресурса, решения с ценой, четыре исхода и никаких правильных ответов.">
+  <meta property="og:url" content="https://razvilki.vercel.app/about/">
+  <meta property="og:image" content="https://razvilki.vercel.app/og-image.png">
+  <meta property="og:image:type" content="image/png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="О проекте — Развилки">
+  <meta name="twitter:description" content="Как устроены «Развилки»: три ресурса, решения с ценой, четыре исхода и никаких правильных ответов.">
+  <meta name="twitter:image" content="https://razvilki.vercel.app/og-image.png">
+
+  <link rel="canonical" href="https://razvilki.vercel.app/about/">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='12'%20fill='%23B23A2A'/%3E%3Cpath%20d='M32%2052V32M32%2032L16%2014M32%2032L48%2014'%20stroke='%23FCFBF8'%20stroke-width='7'%20stroke-linecap='round'/%3E%3C/svg%3E">
+
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('razvilki_theme');
+        var dark = saved ? saved === 'dark'
+          : (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
+        var meta = document.querySelector('meta[name="theme-color"]');
+        if (meta) meta.setAttribute('content', dark ? '#16171A' : '#F5F3EE');
+      } catch (e) {}
+    })();
+  </script>
+
+  <link rel="stylesheet" href="../style.css?v=3">
+  <script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {
+      "@type": "ListItem",
+      "position": 1,
+      "name": "Главная",
+      "item": "https://razvilki.vercel.app/"
+    },
+    {
+      "@type": "ListItem",
+      "position": 2,
+      "name": "О проекте",
+      "item": "https://razvilki.vercel.app/about/"
+    }
+  ]
+}
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">Перейти к содержимому</a>
+
+  <header class="site-header">
+    <div class="shell header-inner">
+      <a class="brand" href="../" aria-label="На главную">
+        <span class="brand-mark" aria-hidden="true">Р</span>
+        <span class="brand-name">Развилки</span>
+      </a>
+      <div class="header-actions">
+        <a class="theme-toggle" href="../tests/">Все тесты</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="shell landing" id="main">
+    <nav class="breadcrumbs" aria-label="Хлебные крошки">
+      <a href="../">Главная</a> / <span class="current">О проекте</span>
+    </nav>
+    <section class="landing-hero">
+      <p class="hero-kicker">О проекте</p>
+      <h1 class="hero-title">Развилки</h1>
+      <p class="hero-sub">Интерактивные тесты-симуляторы выбора: здесь нет правильных ответов, есть только последствия.</p>
+    </section>
+    <div class="landing-text">
+      <p>«Развилки» — это короткие истории, в которых нужно принимать решения. Не «какой ты персонаж», а «что ты сделаешь, когда через две недели сессия, а денег и сил уже нет».</p>
+      <h2>Как устроены ресурсы</h2>
+      <p>В каждом тесте три шкалы, и все стартуют с 50. Любое решение сдвигает их: где-то прибавляет, где-то отнимает. Бесплатных ходов почти нет — даже удачный выбор обычно чем-то платит.</p>
+      <p>Если один из ресурсов падает до нуля, тест заканчивается провалом. Если доходишь до последнего шага — получаешь один из четырёх исходов: от «всё получилось» до «еле дожил».</p>
+      <h2>Почему нет правильных ответов</h2>
+      <p>В жизни одно и то же решение может оказаться и выигрышем, и ошибкой — зависит от того, что для тебя важнее. Поэтому в «Развилках» нет баллов за «правильный» вариант: ты видишь последствия и разбор собственных ходов.</p>
+      <h2>Данные и приватность</h2>
+      <p>На сайте нет аккаунтов, форм и персональных данных. Прогресс — открытые концовки, серия дней и настройки темы — хранится только в твоём браузере (localStorage) и никуда не отправляется.</p>
+      <p>Для обезличенной статистики посещений используется Яндекс.Метрика, в том числе Вебвизор. Это нужно, чтобы понимать, какие тесты интересны, и улучшать сценарии.</p>
+      <h2>Кто делает</h2>
+      <p>«Развилки» — независимый проект. Сценарии основаны на обычных бытовых ситуациях, а не на научных тестах или психологических методиках.</p>
+      <div class="cta-row">
+        <a class="btn" href="../tests/">Выбрать тест</a>
+        <a class="btn btn-ghost" href="../">На главную</a>
+      </div>
+    </div>
+
+  </main>
+
+  <footer class="site-footer">
+    <div class="shell footer-inner">
+      <span>Развилки — платформа интерактивных тестов-симуляторов выбора.</span>
+      <nav class="footer-nav" aria-label="Разделы сайта">
+        <a href="../">Главная</a>
+        <a href="../tests/">Все тесты</a>
+        <a href="../about/">О проекте</a>
+      </nav>
+      <span class="footer-note">Никаких правильных ответов. Только последствия.</span>
+    </div>
+  </footer>
+</body>
+</html>

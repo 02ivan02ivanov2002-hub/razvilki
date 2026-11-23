@@ -70,15 +70,34 @@
   // ---------- Routing ----------
   var SITE_TITLE = document.title;
 
-  function routeId() {
+  function parseRoute() {
     var hash = '';
-    try { hash = location.hash || ''; } catch (e) { return null; }
-    var match = hash.match(/^#\/?([a-z0-9-]+)$/i);
-    return match ? match[1] : null;
+    try { hash = location.hash || ''; } catch (e) { return { id: null, challenge: null }; }
+    var match = hash.match(/^#\/?([a-z0-9-]+)(?:\?([^#]*))?$/i);
+    if (!match) return { id: null, challenge: null };
+    var challenge = null;
+    if (match[2]) {
+      var parts = match[2].split('&');
+      for (var i = 0; i < parts.length; i++) {
+        var pair = parts[i].split('=');
+        if (pair[0] === 'challenge' && pair[1]) {
+          try { challenge = decodeURIComponent(pair[1]); } catch (e) { challenge = pair[1]; }
+        }
+      }
+    }
+    return { id: match[1], challenge: challenge };
   }
 
-  function navigate(id) {
-    var target = id ? '#/' + id : '#/';
+  function routeId() {
+    return parseRoute().id;
+  }
+
+  function navigate(id, challenge) {
+    var target = '#/';
+    if (id) {
+      target = '#/' + id;
+      if (challenge) target += '?challenge=' + encodeURIComponent(challenge);
+    }
     try {
       if (location.hash !== target) location.hash = target;
     } catch (e) {}
@@ -242,6 +261,78 @@
     return Array.isArray(list) ? list.length : 0;
   }
 
+  // ---------- Dates, daily scenario, streak ----------
+  var STREAK_KEY = 'razvilki_streak';
+
+  function pad2(n) {
+    return (n < 10 ? '0' : '') + n;
+  }
+
+  function dateKey(date) {
+    return date.getFullYear() + '-' + pad2(date.getMonth() + 1) + '-' + pad2(date.getDate());
+  }
+
+  function todayKey() {
+    return dateKey(new Date());
+  }
+
+  function dailyScenario() {
+    var now = new Date();
+    var start = new Date(2026, 0, 1);
+    var days = Math.floor((new Date(now.getFullYear(), now.getMonth(), now.getDate()) - start) / 86400000);
+    var list = window.SCENARIOS;
+    return list[((days % list.length) + list.length) % list.length];
+  }
+
+  function loadStreak() {
+    var raw = null;
+    try { raw = localStorage.getItem(STREAK_KEY); } catch (e) {}
+    if (!raw) return { last: '', count: 0 };
+    try {
+      var parsed = JSON.parse(raw);
+      return { last: parsed.last || '', count: parsed.count || 0 };
+    } catch (e) {
+      return { last: '', count: 0 };
+    }
+  }
+
+  function bumpStreak() {
+    var today = todayKey();
+    var streak = loadStreak();
+    if (streak.last === today) return streak;
+    var yesterday = dateKey(new Date(Date.now() - 86400000));
+    streak.count = streak.last === yesterday ? streak.count + 1 : 1;
+    streak.last = today;
+    try { localStorage.setItem(STREAK_KEY, JSON.stringify(streak)); } catch (e) {}
+    return streak;
+  }
+
+  function pluralDays(n) {
+    var mod10 = n % 10;
+    var mod100 = n % 100;
+    if (mod10 === 1 && mod100 !== 11) return 'день';
+    if (mod10 >= 2 && mod10 <= 4 && (mod100 < 12 || mod100 > 14)) return 'дня';
+    return 'дней';
+  }
+
+  function findEnding(sc, id) {
+    for (var i = 0; i < sc.endings.length; i++) {
+      if (sc.endings[i].id === id) return sc.endings[i];
+    }
+    return null;
+  }
+
+  function dailyHtml() {
+    var sc = dailyScenario();
+    var date = new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' });
+    return '<section class="daily">' +
+      '<p class="daily-kicker">Развилка дня · ' + date + '</p>' +
+      '<h2 class="daily-title">' + sc.title + '</h2>' +
+      '<p class="daily-sub">' + sc.tagline + '</p>' +
+      '<button class="btn" type="button" data-start="' + sc.id + '">Играть</button>' +
+      '</section>';
+  }
+
   function resourcesHtml(values) {
     var res = state.scenario.resources;
     var changed = state.lastChanged || {};
@@ -274,11 +365,20 @@
     if (routeId()) navigate(null);
     document.title = SITE_TITLE;
 
+    var streak = loadStreak();
+    var streakHtml = '';
+    if (streak.count >= 2 && streak.last === todayKey()) {
+      streakHtml = '<p class="streak">Серия: ' + streak.count + ' ' + pluralDays(streak.count) + ' подряд</p>';
+    }
+
     var html = '<section class="hero">' +
       '<p class="hero-kicker">Интерактивные тесты-симуляторы</p>' +
       '<h1 class="hero-title">Развилки</h1>' +
       '<p class="hero-sub">Здесь нет правильных ответов. Каждое решение двигает шкалы ресурсов — и в конце ты получаешь свой, а не «единственно верный» исход.</p>' +
+      streakHtml +
       '</section>';
+
+    html += dailyHtml();
 
     html += '<div class="grid">';
     for (var i = 0; i < window.SCENARIOS.length; i++) {
@@ -318,9 +418,11 @@
   }
 
   // ---------- Test view ----------
-  function startScenario(id) {
+  function startScenario(id, challenge) {
     var sc = findScenario(id);
     if (!sc) return;
+
+    var validChallenge = challenge && findEnding(sc, challenge) ? challenge : null;
 
     var values = {};
     for (var k in sc.startValues) values[k] = sc.startValues[k];
@@ -332,12 +434,14 @@
       history: [],
       failed: false,
       failedResource: null,
-      lastChanged: {}
+      lastChanged: {},
+      challenge: validChallenge
     };
 
-    navigate(sc.id);
+    navigate(sc.id, validChallenge);
     document.title = sc.title + ' — ' + SITE_NAME;
     trackGoal('test_started', sc.id);
+    if (validChallenge) trackGoal('challenge_opened', sc.id);
     renderTest();
   }
 
@@ -353,7 +457,15 @@
 
     html += resourcesHtml(state.values);
 
+    var challenge = state.challenge ? findEnding(sc, state.challenge) : null;
+    var challengeHtml = '';
+    if (challenge && state.step === 0) {
+      challengeHtml = '<p class="challenge-note">Друг прошёл этот тест и получил «' + challenge.title +
+        '». Пройдёшь иначе?</p>';
+    }
+
     html += '<div class="step-card">' +
+      challengeHtml +
       '<p class="step-text" tabindex="-1">' + step.text + '</p>' +
       '<div class="choices">';
 
@@ -475,24 +587,60 @@
   function renderFinal() {
     var sc = state.scenario;
     var ending = pickEnding(sc, state.values);
+    var openedBefore = loadOpenedEndings()[sc.id];
+    var wasNew = !Array.isArray(openedBefore) || openedBefore.indexOf(ending.id) === -1;
     saveOpenedEnding(sc.id, ending.id);
+    var openedCount = countOpenedEndings(sc.id);
+    var streak = bumpStreak();
     playSound('final');
+
+    var challenge = state.challenge ? findEnding(sc, state.challenge) : null;
+    var challengeHtml = '';
+    if (challenge) {
+      challengeHtml = '<p class="challenge-result">' +
+        (challenge.id === ending.id
+          ? 'Ты повторил исход друга — «' + challenge.title + '».'
+          : 'Друг получил «' + challenge.title + '», а ты выбрал иначе.') +
+        '</p>';
+    }
 
     var html = '<div class="result-plate">' +
       '<p class="result-label">Итог</p>' +
       '<h1 class="result-title" tabindex="-1">' + ending.title + '</h1>' +
       '<p class="result-text">' + ending.text + '</p>' +
+      challengeHtml +
       '</div>';
 
     html += resourcesHtml(state.values);
 
+    html += '<p class="collection-note">Открыто концовок: <b>' + openedCount + ' из ' + sc.endings.length + '</b>' +
+      (wasNew ? ' — эта новая!' : '') +
+      (openedCount < sc.endings.length ? ' Осталось найти: ' + (sc.endings.length - openedCount) + '.' : ' Все собраны.') +
+      '</p>';
+
+    if (streak.count >= 2) {
+      html += '<p class="collection-note">Серия: <b>' + streak.count + ' ' + pluralDays(streak.count) + ' подряд</b>.</p>';
+    }
+
     html += '<h2 class="section-title">Разбор твоих ходов</h2>';
     html += breakdownHtml(state.history);
+
+    var link = scenarioLink(sc.id, ending.id);
+    var shareHtml = '';
+    if (link) {
+      shareHtml = '<div class="share-row">' +
+        '<a class="share-btn" href="' + vkShareUrl(link, ending) + '" target="_blank" rel="noopener">ВКонтакте</a>' +
+        '<a class="share-btn" href="' + tgShareUrl(link, ending) + '" target="_blank" rel="noopener">Telegram</a>' +
+        '<a class="share-btn" href="' + waShareUrl(link, ending) + '" target="_blank" rel="noopener">WhatsApp</a>' +
+        '</div>';
+    }
 
     html += '<div class="result-actions">' +
       '<button class="btn" type="button" id="copyResult">Скопировать итог для друзей</button>' +
       '<button class="btn btn-ghost" type="button" id="shareCard">Поделиться карточкой</button>' +
       '</div>';
+
+    html += shareHtml;
 
     html += '<div class="result-actions">' +
       '<button class="btn btn-ghost" type="button" id="restartBtn">Пройти заново</button>' +
@@ -511,6 +659,12 @@
     document.getElementById('shareCard').addEventListener('click', function () {
       shareResultCard(this);
     });
+    var shares = app.querySelectorAll('.share-btn');
+    for (var s = 0; s < shares.length; s++) {
+      shares[s].addEventListener('click', function () {
+        trackGoal('share_clicked', sc.id);
+      });
+    }
     document.getElementById('restartBtn').addEventListener('click', function () {
       trackGoal('test_restarted', sc.id);
       startScenario(sc.id);
@@ -568,10 +722,30 @@
     }
   }
 
-  function scenarioLink(id) {
+  function scenarioLink(id, challenge) {
     var base = siteLink();
     if (!base) return '';
-    return base.split('#')[0] + '#/' + id;
+    var link = base.split('#')[0] + '#/' + id;
+    if (challenge) link += '?challenge=' + encodeURIComponent(challenge);
+    return link;
+  }
+
+  function shareTitle(ending) {
+    return 'Развилки — ' + ending.title;
+  }
+
+  function vkShareUrl(link, ending) {
+    return 'https://vk.com/share.php?url=' + encodeURIComponent(link) +
+      '&title=' + encodeURIComponent(shareTitle(ending));
+  }
+
+  function tgShareUrl(link, ending) {
+    return 'https://t.me/share/url?url=' + encodeURIComponent(link) +
+      '&text=' + encodeURIComponent(shareTitle(ending));
+  }
+
+  function waShareUrl(link, ending) {
+    return 'https://wa.me/?text=' + encodeURIComponent(shareTitle(ending) + ': ' + link);
   }
 
   function buildResultText() {
@@ -594,10 +768,10 @@
       lines.push((i + 1) + '. ' + state.history[i].choiceText);
     }
 
-    var link = scenarioLink(sc.id);
+    var link = scenarioLink(sc.id, ending.id);
     if (link) {
       lines.push('');
-      lines.push('Пройти тест: ' + link);
+      lines.push('Проверь свой исход: ' + link);
     }
 
     return lines.join('\n');
@@ -828,6 +1002,10 @@
         ctx.fill();
       }
     }
+
+    ctx.fillStyle = colors.accent;
+    ctx.font = '700 18px ' + FONT_SANS;
+    ctx.fillText('ПРОВЕРЬ СВОЙ ИСХОД · RAZVILKI.VERCEL.APP', P, 584);
   }
 
   function dataUrlToBlob(dataUrl) {
@@ -901,6 +1079,7 @@
 
     var sc = state.scenario;
     var ending = pickEnding(sc, state.values);
+    trackGoal('share_clicked', sc.id);
     var values = state.values;
     var shareText = buildResultText();
     var filename = 'razvilki-' + sc.id + '-' + (ending.id || 'result') + '.png';
@@ -949,23 +1128,26 @@
 
   window.addEventListener('hashchange', function () {
     if (!window.SCENARIOS || !window.SCENARIOS.length) return;
-    var id = routeId();
-    if (!id) {
+    var route = parseRoute();
+    if (!route.id) {
       if (state) renderMain();
       return;
     }
-    if (!findScenario(id)) {
+    if (!findScenario(route.id)) {
       renderMain();
       return;
     }
-    if (state && state.scenario.id === id) return;
-    startScenario(id);
+    if (state && state.scenario.id === route.id && state.challenge === route.challenge) return;
+    startScenario(route.id, route.challenge);
   });
 
   initTheme();
   initSound();
 
-  var initialRoute = routeId();
-  if (initialRoute && window.SCENARIOS && findScenario(initialRoute)) startScenario(initialRoute);
-  else renderMain();
+  var initialRoute = parseRoute();
+  if (initialRoute.id && window.SCENARIOS && findScenario(initialRoute.id)) {
+    startScenario(initialRoute.id, initialRoute.challenge);
+  } else {
+    renderMain();
+  }
 })();
