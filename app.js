@@ -1,7 +1,8 @@
 (function () {
   'use strict';
 
-  var METRIKA_ID = 114394691;
+  var METRIKA_ID = 114490918;
+  var SITE_NAME = 'Развилки';
 
   var app = document.getElementById('app');
   var themeToggle = document.getElementById('themeToggle');
@@ -27,15 +28,31 @@
   };
 
   // ---------- Theme ----------
+  var metaThemeColor = document.querySelector('meta[name="theme-color"]');
+
   function applyTheme(theme) {
     document.documentElement.setAttribute('data-theme', theme);
     themeToggle.textContent = theme === 'dark' ? 'Светлая тема' : 'Тёмная тема';
+    if (metaThemeColor) {
+      metaThemeColor.setAttribute('content', theme === 'dark' ? '#16171A' : '#F5F3EE');
+    }
+  }
+
+  function systemTheme() {
+    try {
+      if (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches) return 'dark';
+    } catch (e) {}
+    return 'light';
   }
 
   function initTheme() {
     var saved = null;
     try { saved = localStorage.getItem('razvilki_theme'); } catch (e) {}
-    applyTheme(saved === 'dark' ? 'dark' : 'light');
+    var current = document.documentElement.getAttribute('data-theme');
+    var theme = saved === 'dark' || saved === 'light'
+      ? saved
+      : (current === 'dark' || current === 'light' ? current : systemTheme());
+    applyTheme(theme);
   }
 
   themeToggle.addEventListener('click', function () {
@@ -49,6 +66,37 @@
     e.preventDefault();
     renderMain();
   });
+
+  // ---------- Routing ----------
+  var SITE_TITLE = document.title;
+
+  function routeId() {
+    var hash = '';
+    try { hash = location.hash || ''; } catch (e) { return null; }
+    var match = hash.match(/^#\/?([a-z0-9-]+)$/i);
+    return match ? match[1] : null;
+  }
+
+  function navigate(id) {
+    var target = id ? '#/' + id : '#/';
+    try {
+      if (location.hash !== target) location.hash = target;
+    } catch (e) {}
+  }
+
+  // ---------- Screen readers & focus ----------
+  var statusEl = document.getElementById('status');
+
+  function announce(text) {
+    if (!statusEl) return;
+    statusEl.textContent = text;
+  }
+
+  function focusFirst(selector) {
+    var el = app.querySelector(selector);
+    if (!el || !el.focus) return;
+    try { el.focus({ preventScroll: true }); } catch (e) { el.focus(); }
+  }
 
   // ---------- Sound ----------
   var SOUND_KEY = 'razvilki_sound';
@@ -131,14 +179,16 @@
   }
 
   // ---------- Analytics ----------
-  function trackGoal(name) {
-    if (typeof ym === 'function') {
-      try { ym(METRIKA_ID, 'reachGoal', name); } catch (e) {}
-    }
+  function trackGoal(name, scenarioId) {
+    if (typeof ym !== 'function') return;
+    try {
+      if (scenarioId) ym(METRIKA_ID, 'reachGoal', name, { scenario: scenarioId });
+      else ym(METRIKA_ID, 'reachGoal', name);
+    } catch (e) {}
   }
 
   // ---------- Helpers ----------
-  function clampBar(value) {
+  function clampValue(value) {
     return Math.max(0, Math.min(100, value));
   }
 
@@ -204,7 +254,8 @@
       html += '<div class="resource ' + level + change + '">' +
         '<div class="resource-head"><span class="resource-name">' + name + '</span>' +
         '<span class="resource-value">' + value + '</span></div>' +
-        '<div class="resource-track"><div class="resource-fill" style="width:' + clampBar(value) + '%"></div></div>' +
+        '<div class="resource-track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + clampValue(value) + '" aria-label="' + name + '">' +
+        '<div class="resource-fill" style="width:' + clampValue(value) + '%"></div></div>' +
         '</div>';
     }
     html += '</div>';
@@ -213,7 +264,16 @@
 
   // ---------- Main screen ----------
   function renderMain() {
+    if (!window.SCENARIOS || !window.SCENARIOS.length) {
+      app.innerHTML = '<p class="notice">Не удалось загрузить сценарии. Проверьте подключение и обновите страницу.</p>';
+      return;
+    }
+
+    var hadState = !!state;
     state = null;
+    if (routeId()) navigate(null);
+    document.title = SITE_TITLE;
+
     var html = '<section class="hero">' +
       '<p class="hero-kicker">Интерактивные тесты-симуляторы</p>' +
       '<h1 class="hero-title">Развилки</h1>' +
@@ -250,6 +310,11 @@
         startScenario(this.getAttribute('data-start'));
       });
     }
+
+    if (hadState) {
+      announce('Список тестов');
+      focusFirst('.hero-title');
+    }
   }
 
   // ---------- Test view ----------
@@ -270,7 +335,9 @@
       lastChanged: {}
     };
 
-    trackGoal('test_started');
+    navigate(sc.id);
+    document.title = sc.title + ' — ' + SITE_NAME;
+    trackGoal('test_started', sc.id);
     renderTest();
   }
 
@@ -287,7 +354,7 @@
     html += resourcesHtml(state.values);
 
     html += '<div class="step-card">' +
-      '<p class="step-text">' + step.text + '</p>' +
+      '<p class="step-text" tabindex="-1">' + step.text + '</p>' +
       '<div class="choices">';
 
     for (var i = 0; i < step.choices.length; i++) {
@@ -312,6 +379,9 @@
         applyChoice(parseInt(this.getAttribute('data-choice'), 10));
       });
     }
+
+    announce('Шаг ' + (state.step + 1) + ' из ' + total);
+    focusFirst('.step-text');
   }
 
   function choiceBlockers(choice) {
@@ -341,7 +411,7 @@
 
     for (var res in effects) {
       if (state.values[res] == null) state.values[res] = sc.startValues[res] || 0;
-      state.values[res] += effects[res];
+      state.values[res] = clampValue(state.values[res] + effects[res]);
       state.lastChanged[res] = effects[res] >= 0 ? 'up' : 'down';
       deltas.push(formatDelta(res, effects[res]));
     }
@@ -363,13 +433,13 @@
     }
 
     if (state.failed) {
-      trackGoal('test_finished');
+      trackGoal('test_failed', sc.id);
       renderFail();
       return;
     }
 
     if (state.step + 1 >= sc.steps.length) {
-      trackGoal('test_finished');
+      trackGoal('test_finished', sc.id);
       renderFinal();
     } else {
       state.step += 1;
@@ -385,25 +455,10 @@
     return sc.endings[sc.endings.length - 1];
   }
 
-  function renderFinal() {
-    var sc = state.scenario;
-    var ending = pickEnding(sc, state.values);
-    saveOpenedEnding(sc.id, ending.id);
-    playSound('final');
-
-    var html = '<div class="result-plate">' +
-      '<p class="result-label">Итог</p>' +
-      '<h1 class="result-title">' + ending.title + '</h1>' +
-      '<p class="result-text">' + ending.text + '</p>' +
-      '</div>';
-
-    html += resourcesHtml(state.values);
-
-    html += '<h2 class="section-title">Разбор твоих ходов</h2>';
-    html += '<div class="breakdown">';
-
-    for (var i = 0; i < state.history.length; i++) {
-      var h = state.history[i];
+  function breakdownHtml(items) {
+    var html = '<div class="breakdown">';
+    for (var i = 0; i < items.length; i++) {
+      var h = items[i];
       html += '<div class="breakdown-item">' +
         '<div class="breakdown-head">' +
         '<span class="breakdown-step">Шаг ' + h.step + '</span>' +
@@ -413,15 +468,31 @@
       html += '<span class="breakdown-delta">' + h.deltas.join(' · ') + '</span>' +
         '</div>';
     }
-
     html += '</div>';
+    return html;
+  }
+
+  function renderFinal() {
+    var sc = state.scenario;
+    var ending = pickEnding(sc, state.values);
+    saveOpenedEnding(sc.id, ending.id);
+    playSound('final');
+
+    var html = '<div class="result-plate">' +
+      '<p class="result-label">Итог</p>' +
+      '<h1 class="result-title" tabindex="-1">' + ending.title + '</h1>' +
+      '<p class="result-text">' + ending.text + '</p>' +
+      '</div>';
+
+    html += resourcesHtml(state.values);
+
+    html += '<h2 class="section-title">Разбор твоих ходов</h2>';
+    html += breakdownHtml(state.history);
 
     html += '<div class="result-actions">' +
       '<button class="btn" type="button" id="copyResult">Скопировать итог для друзей</button>' +
       '<button class="btn btn-ghost" type="button" id="shareCard">Поделиться карточкой</button>' +
       '</div>';
-
-    html += '<div class="yandex-slot" id="yandex_rtb_result" aria-hidden="true">Рекламный блок</div>';
 
     html += '<div class="result-actions">' +
       '<button class="btn btn-ghost" type="button" id="restartBtn">Пройти заново</button>' +
@@ -430,6 +501,10 @@
 
     app.innerHTML = html;
 
+    document.title = 'Итог: ' + ending.title + ' — ' + SITE_NAME;
+    announce('Итог: ' + ending.title);
+    focusFirst('.result-title');
+
     document.getElementById('copyResult').addEventListener('click', function () {
       copyResult(this);
     });
@@ -437,7 +512,7 @@
       shareResultCard(this);
     });
     document.getElementById('restartBtn').addEventListener('click', function () {
-      trackGoal('test_restarted');
+      trackGoal('test_restarted', sc.id);
       startScenario(sc.id);
     });
     document.getElementById('toListBtn').addEventListener('click', function () {
@@ -453,27 +528,14 @@
 
     var html = '<div class="result-plate danger-plate">' +
       '<p class="result-label">Провал</p>' +
-      '<h1 class="result-title">' + res + ' на нуле</h1>' +
+      '<h1 class="result-title" tabindex="-1">' + res + ' на нуле</h1>' +
       '<p class="result-text">' + (FAIL_MESSAGES[res] || 'Один из ресурсов иссяк — на этом этапе ты не вытянул.') + '</p>' +
       '</div>';
 
     html += resourcesHtml(state.values);
 
     html += '<h2 class="section-title">Как это случилось</h2>';
-    html += '<div class="breakdown">';
-
-    for (var i = 0; i < state.history.length; i++) {
-      var h = state.history[i];
-      html += '<div class="breakdown-item">' +
-        '<div class="breakdown-head">' +
-        '<span class="breakdown-step">Шаг ' + h.step + '</span>' +
-        '<span class="breakdown-choice">' + h.choiceText + '</span>' +
-        '</div>' +
-        '<span class="breakdown-delta">' + h.deltas.join(' · ') + '</span>' +
-        '</div>';
-    }
-
-    html += '</div>';
+    html += breakdownHtml(state.history);
 
     html += '<div class="result-actions">' +
       '<button class="btn" type="button" id="restartBtn">Попробовать ещё раз</button>' +
@@ -482,8 +544,12 @@
 
     app.innerHTML = html;
 
+    document.title = 'Провал — ' + SITE_NAME;
+    announce('Провал: ресурс «' + res + '» на нуле');
+    focusFirst('.result-title');
+
     document.getElementById('restartBtn').addEventListener('click', function () {
-      trackGoal('test_restarted');
+      trackGoal('test_restarted', sc.id);
       startScenario(sc.id);
     });
     document.getElementById('toListBtn').addEventListener('click', function () {
@@ -500,6 +566,12 @@
     } catch (e) {
       return '';
     }
+  }
+
+  function scenarioLink(id) {
+    var base = siteLink();
+    if (!base) return '';
+    return base.split('#')[0] + '#/' + id;
   }
 
   function buildResultText() {
@@ -522,7 +594,7 @@
       lines.push((i + 1) + '. ' + state.history[i].choiceText);
     }
 
-    var link = siteLink();
+    var link = scenarioLink(sc.id);
     if (link) {
       lines.push('');
       lines.push('Пройти тест: ' + link);
@@ -533,13 +605,13 @@
 
   function copyResult(btn) {
     var text = buildResultText();
+    if (!btn.dataset.label) btn.dataset.label = btn.textContent;
 
     var done = function () {
-      var old = btn.textContent;
       btn.textContent = 'Скопировано!';
       btn.classList.add('copied');
       setTimeout(function () {
-        btn.textContent = old;
+        btn.textContent = btn.dataset.label;
         btn.classList.remove('copied');
       }, 1600);
     };
@@ -749,7 +821,7 @@
       ctx.fillStyle = colors.surface2;
       ctx.fill();
 
-      var fillW = clampBar(value) / 100 * trackW;
+      var fillW = clampValue(value) / 100 * trackW;
       if (fillW > 0) {
         drawRoundRect(ctx, trackX, trackY, fillW, 8, 4);
         ctx.fillStyle = levelColor;
@@ -875,7 +947,25 @@
     downloadBlob(blob, filename);
   }
 
+  window.addEventListener('hashchange', function () {
+    if (!window.SCENARIOS || !window.SCENARIOS.length) return;
+    var id = routeId();
+    if (!id) {
+      if (state) renderMain();
+      return;
+    }
+    if (!findScenario(id)) {
+      renderMain();
+      return;
+    }
+    if (state && state.scenario.id === id) return;
+    startScenario(id);
+  });
+
   initTheme();
   initSound();
-  renderMain();
+
+  var initialRoute = routeId();
+  if (initialRoute && window.SCENARIOS && findScenario(initialRoute)) startScenario(initialRoute);
+  else renderMain();
 })();
