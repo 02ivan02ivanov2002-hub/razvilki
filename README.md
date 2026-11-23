@@ -12,6 +12,7 @@
 - `tests/`, `about/` — статические страницы для поиска (генерируются).
 - `tools/build-pages.mjs` — генератор этих страниц и `sitemap.xml`.
 - `og-image.png`, `robots.txt`, `vercel.json` — обвязка.
+- Telegram-канал проекта: https://t.me/anya_bsdym
 
 ## Как добавить сценарий
 

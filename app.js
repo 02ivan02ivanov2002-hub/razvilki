@@ -3,6 +3,7 @@
 
   var METRIKA_ID = 114490918;
   var SITE_NAME = 'Развилки';
+  var TELEGRAM_URL = 'https://t.me/anya_bsdym';
 
   var app = document.getElementById('app');
   var themeToggle = document.getElementById('themeToggle');
@@ -642,6 +643,9 @@
 
     html += shareHtml;
 
+    html += '<p class="subscribe">Новые развилки и анонсы — ' +
+      '<a href="' + TELEGRAM_URL + '" target="_blank" rel="noopener">в Telegram-канале</a>.</p>';
+
     html += '<div class="result-actions">' +
       '<button class="btn btn-ghost" type="button" id="restartBtn">Пройти заново</button>' +
       '<button class="btn btn-ghost" type="button" id="toListBtn">К списку тестов</button>' +
@@ -663,6 +667,12 @@
     for (var s = 0; s < shares.length; s++) {
       shares[s].addEventListener('click', function () {
         trackGoal('share_clicked', sc.id);
+      });
+    }
+    var telegramLink = app.querySelector('.subscribe a');
+    if (telegramLink) {
+      telegramLink.addEventListener('click', function () {
+        trackGoal('telegram_clicked', sc.id);
       });
     }
     document.getElementById('restartBtn').addEventListener('click', function () {

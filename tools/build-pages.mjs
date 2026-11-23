@@ -12,7 +12,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const SITE = 'https://razvilki.vercel.app';
 const OG_IMAGE = SITE + '/og-image.png';
 const BUILD_DATE = new Date().toISOString().slice(0, 10);
-const CSS_VERSION = '3';
+const CSS_VERSION = '4';
+const METRIKA_ID = 114490918;
 
 const INTRO = {
   'session-panic': [
@@ -65,6 +66,25 @@ function breadcrumbs(prefix, current) {
     '</nav>';
 }
 
+function metrikaHead() {
+  return '  <!-- Yandex.Metrika counter -->\n' +
+    '  <script type="text/javascript">\n' +
+    '    (function (m, e, t, r, i, k, a) {\n' +
+    '      m[i] = m[i] || function () { (m[i].a = m[i].a || []).push(arguments); };\n' +
+    '      m[i].l = 1 * new Date();\n' +
+    "      for (var j = 0; j < document.scripts.length; j++) { if (document.scripts[j].src === r) { return; } }\n" +
+    '      k = e.createElement(t), a = e.getElementsByTagName(t)[0], k.async = 1, k.src = r, a.parentNode.insertBefore(k, a);\n' +
+    "    })(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js?id=" + METRIKA_ID + "', 'ym');\n" +
+    '\n' +
+    '    ym(' + METRIKA_ID + ", 'init', { ssr: true, webvisor: true, clickmap: true, accurateTrackBounce: true, trackLinks: true });\n" +
+    '  </script>\n' +
+    '  <!-- /Yandex.Metrika counter -->\n';
+}
+
+function metrikaBody() {
+  return '  <noscript><div><img src="https://mc.yandex.ru/watch/' + METRIKA_ID + '" style="position:absolute; left:-9999px;" alt="" /></div></noscript>\n';
+}
+
 function page({ title, description, canonical, prefix, body, jsonLd }) {
   const icon = "data:image/svg+xml,%3Csvg%20xmlns='http://www.w3.org/2000/svg'%20viewBox='0%200%2064%2064'%3E%3Crect%20width='64'%20height='64'%20rx='12'%20fill='%23B23A2A'/%3E%3Cpath%20d='M32%2052V32M32%2032L16%2014M32%2032L48%2014'%20stroke='%23FCFBF8'%20stroke-width='7'%20stroke-linecap='round'/%3E%3C/svg%3E";
   return '<!DOCTYPE html>\n' +
@@ -109,6 +129,7 @@ function page({ title, description, canonical, prefix, body, jsonLd }) {
     '  </script>\n' +
     '\n' +
     '  <link rel="stylesheet" href="' + prefix + 'style.css?v=' + CSS_VERSION + '">\n' +
+    metrikaHead() +
     (jsonLd
       ? '  <script type="application/ld+json">\n' + JSON.stringify(jsonLd, null, 2) + '\n  </script>\n'
       : '') +
@@ -139,10 +160,12 @@ function page({ title, description, canonical, prefix, body, jsonLd }) {
     '        <a href="' + prefix + '">Главная</a>\n' +
     '        <a href="' + prefix + 'tests/">Все тесты</a>\n' +
     '        <a href="' + prefix + 'about/">О проекте</a>\n' +
+    '        <a href="https://t.me/anya_bsdym" target="_blank" rel="noopener">Telegram</a>\n' +
     '      </nav>\n' +
     '      <span class="footer-note">Никаких правильных ответов. Только последствия.</span>\n' +
     '    </div>\n' +
     '  </footer>\n' +
+    metrikaBody() +
     '</body>\n' +
     '</html>\n';
 }
@@ -267,6 +290,8 @@ function aboutBody() {
     '      <p>Для обезличенной статистики посещений используется Яндекс.Метрика, в том числе Вебвизор. Это нужно, чтобы понимать, какие тесты интересны, и улучшать сценарии.</p>\n' +
     '      <h2>Кто делает</h2>\n' +
     '      <p>«Развилки» — независимый проект. Сценарии основаны на обычных бытовых ситуациях, а не на научных тестах или психологических методиках.</p>\n' +
+    '      <h2>Где следить</h2>\n' +
+    '      <p>Новые развилки и анонсы выходят в <a href="https://t.me/anya_bsdym" target="_blank" rel="noopener">Telegram-канале</a>.</p>\n' +
     '      <div class="cta-row">\n' +
     '        <a class="btn" href="../tests/">Выбрать тест</a>\n' +
     '        <a class="btn btn-ghost" href="../">На главную</a>\n' +
